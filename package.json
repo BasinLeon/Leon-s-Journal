@@ -1,5 +1,5 @@
 {
-  "name": "basin::nexus-gtm-architect",
+  "name": "basin::nexus",
   "private": true,
   "version": "0.0.0",
   "type": "module",

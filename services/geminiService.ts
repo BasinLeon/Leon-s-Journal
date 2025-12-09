@@ -1,11 +1,9 @@
 
-import { GoogleGenAI, Chat, GenerativeModel } from "@google/genai";
+import { GoogleGenAI, Chat } from "@google/genai";
 import { SYSTEM_PERSONAS, AppMode } from "../types";
 
 const apiKey = process.env.API_KEY || '';
 
-// We maintain a singleton-like instance for simplicity in this demo,
-// but in a real app you might manage this via Context.
 let client: GoogleGenAI | null = null;
 
 if (apiKey) {
@@ -34,6 +32,12 @@ const getSystemInstruction = (mode: AppMode): string => {
       return SYSTEM_PERSONAS.NETWORK;
     case AppMode.JOURNAL:
       return SYSTEM_PERSONAS.JOURNAL;
+    case AppMode.HUNT:
+      return SYSTEM_PERSONAS.HUNT;
+    case AppMode.PIPELINE:
+      return SYSTEM_PERSONAS.PIPELINE;
+    case AppMode.RESUME:
+      return SYSTEM_PERSONAS.RESUME;
     default:
       return "You are a helpful assistant.";
   }
@@ -41,12 +45,14 @@ const getSystemInstruction = (mode: AppMode): string => {
 
 // Map AppMode to Model
 const getModelName = (mode: AppMode): string => {
-  // Use Pro for complex reasoning (Architect/Mirror/Network/Journal), Flash for speed (Dojo/Scribe)
+  // Use Pro for complex reasoning (Architect/Mirror/Network/Journal/Resume), Flash for speed (Dojo/Scribe)
   switch (mode) {
     case AppMode.ARCHITECT:
     case AppMode.MIRROR:
     case AppMode.NETWORK:
     case AppMode.JOURNAL:
+    case AppMode.RESUME:
+    case AppMode.HUNT:
       return 'gemini-3-pro-preview';
     default:
       return 'gemini-2.5-flash';
@@ -78,7 +84,6 @@ export const sendMessageStream = async (
     const result = await chat.sendMessageStream({ message });
     
     for await (const chunk of result) {
-       // The chunk structure in the new SDK: chunk.text gives the text directly from the candidate
        if (chunk.text) {
          onChunk(chunk.text);
        }

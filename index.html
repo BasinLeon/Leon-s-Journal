@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Basin::Nexus // GTM Architect</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         theme: {
@@ -16,15 +16,39 @@
             },
             colors: {
               nexus: {
-                dark: '#0f172a',
-                panel: '#1e293b',
-                border: '#334155',
-                accent: '#3b82f6', // Blue for specific highlights
-                success: '#10b981',
-                warning: '#f59e0b',
-                danger: '#ef4444',
-                text: '#f1f5f9',
-                muted: '#94a3b8'
+                base: '#020617',    // Slate 950 - Deepest void
+                dark: '#0B1121',    // Slate 925 - Panel background
+                panel: '#151e32',   // Slate 850 - Card background
+                border: '#1e293b',  // Slate 800 - Borders
+                accent: '#3b82f6',  // Blue 500 - Primary Action
+                gold: '#D4AF37',    // Executive Gold - High Value
+                success: '#10b981', // Emerald 500 - Signals
+                warning: '#f59e0b', // Amber 500 - Alerts
+                danger: '#ef4444',  // Red 500 - Critical
+                text: '#f8fafc',    // Slate 50
+                muted: '#94a3b8',   // Slate 400
+                subtle: '#475569'   // Slate 600
+              }
+            },
+            backgroundImage: {
+              'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+              'glass': 'linear-gradient(180deg, rgba(21, 30, 50, 0.7) 0%, rgba(11, 17, 33, 0.8) 100%)',
+              'glass-hover': 'linear-gradient(180deg, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 0.6) 100%)',
+              'gold-glow': 'radial-gradient(circle at center, rgba(212, 175, 55, 0.15) 0%, transparent 70%)',
+            },
+            boxShadow: {
+              'glow': '0 0 20px -5px rgba(59, 130, 246, 0.4)',
+              'glow-gold': '0 0 20px -5px rgba(212, 175, 55, 0.3)',
+              'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+            },
+            animation: {
+              'shimmer': 'shimmer 3s linear infinite',
+              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            },
+            keyframes: {
+              shimmer: {
+                '0%': { transform: 'translateX(-100%)' },
+                '100%': { transform: 'translateX(100%)' }
               }
             }
           }
@@ -33,23 +57,42 @@
     </script>
     <style>
       body {
-        background-color: #0f172a;
-        color: #f1f5f9;
+        background-color: #020617;
+        color: #f8fafc;
+        /* Subtle mesh gradient background */
+        background-image: 
+          radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.08) 0px, transparent 50%),
+          radial-gradient(at 100% 100%, rgba(212, 175, 55, 0.05) 0px, transparent 50%);
+        background-attachment: fixed;
       }
-      /* Custom scrollbar for terminal feel */
+      
+      /* Premium Scrollbar */
       ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
+        width: 6px;
+        height: 6px;
       }
       ::-webkit-scrollbar-track {
-        background: #0f172a; 
+        background: transparent; 
       }
       ::-webkit-scrollbar-thumb {
         background: #334155; 
-        border-radius: 4px;
+        border-radius: 3px;
+        transition: background 0.2s;
       }
       ::-webkit-scrollbar-thumb:hover {
         background: #475569; 
+      }
+
+      .animate-fade-in {
+        animation: fadeIn 0.5s ease-out forwards;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      .backdrop-blur-md {
+        backdrop-filter: blur(12px);
       }
     </style>
   <script type="importmap">

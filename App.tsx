@@ -1,10 +1,13 @@
-
 import React, { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import ChatInterface from './components/ChatInterface';
 import NetworkCRM from './components/NetworkCRM';
 import Journal from './components/Journal';
+import Dojo from './components/Dojo';
+import Pipeline from './components/Pipeline';
+import Hunt from './components/Hunt';
+import ResumeArchitect from './components/ResumeArchitect';
 import { AppMode, NetworkContact, Deal, InterviewSession, JournalEntry } from './types';
 import { exportToStreamlit, importFromStreamlit, NexusExport } from './services/dataBridge';
 import { Loader2 } from 'lucide-react';
@@ -13,17 +16,27 @@ const App: React.FC = () => {
   const [currentMode, setMode] = useState<AppMode>(AppMode.DASHBOARD);
   const [isImporting, setIsImporting] = useState(false);
   
-  // Lifted state for Data Bridge Sync
+  // PRE-LOADED DATA FROM "WAR ROOM" DUMP
   const [contacts, setContacts] = useState<NetworkContact[]>([
-    { id: '1', name: 'John Smith', role: 'VP Sales', company: 'Tebra', date: '2024-12-08', stage: 'Hot', lastTopic: 'AI SDRs' },
-    { id: '2', name: 'Sarah Chen', role: 'Head of GTM', company: 'Adobe', date: '2024-12-07', stage: 'Warm', lastTopic: 'Partner Ecosystems' },
-    { id: '3', name: 'Mike Ross', role: 'Founder', company: 'Stealth', date: '2024-12-06', stage: 'Cold', lastTopic: 'Zero Trust Security' },
+    { id: '101', name: 'Samuel Burns', role: 'Hiring Manager', company: 'DepthFirst', date: '2025-11-19', stage: 'Hot', lastTopic: 'CRO Intro Pending', priority: 1 },
+    { id: '102', name: 'Cyrus Akrami', role: 'CRO', company: 'DepthFirst', date: '2025-11-19', stage: 'Cold', lastTopic: 'Intro from Samuel', priority: 1 },
+    { id: '103', name: 'Kyu Kim', role: 'Founder', company: 'Spray.io', date: '2025-11-17', stage: 'Hot', lastTopic: 'Micro-contract scope', priority: 2 },
+    { id: '104', name: 'Asaph Wutawunashe', role: 'Chairman', company: 'FYM Africa', date: '2025-11-18', stage: 'Hot', lastTopic: 'Partner-track GTM', priority: 1 },
+    { id: '105', name: 'Kayleigh', role: 'Recruiter', company: 'Aikido Security', date: '2025-11-15', stage: 'Warm', lastTopic: 'US Account Executive', priority: 1 },
+    { id: '106', name: 'Jessica Lokumkiattikul', role: 'Sales Manager', company: 'Assort Health', date: '2025-11-18', stage: 'Warm', lastTopic: 'Inbound Reply', priority: 1 },
+    { id: '107', name: 'Whitney Robbins', role: 'VP of Sales', company: 'ROLLER', date: '2025-11-17', stage: 'Warm', lastTopic: 'Early Interest', priority: 2 },
+    { id: '108', name: 'Ryan Freeman', role: 'Head of Partnerships', company: 'Deel', date: '2025-12-02', stage: 'Cold', lastTopic: 'Workday Hook', priority: 1 },
+    { id: '109', name: 'Adam Estoclet', role: 'Head of Ent. Sales', company: 'Deel', date: '2025-12-02', stage: 'Cold', lastTopic: 'SWAT Team Hook', priority: 1 },
+    { id: '110', name: 'Tai Rattigan', role: 'Co-Founder', company: 'Partnership Leaders', date: '2025-12-02', stage: 'Cold', lastTopic: 'Influencer Outreach', priority: 2 },
   ]);
 
   const [deals, setDeals] = useState<Deal[]>([
-     { id: '1', company: 'Tebra', role: 'Director, GTM', stage: 'Interview', value: '$250k', contacts: ['John Smith'], next_step: 'Panel Prep' },
-     { id: '2', company: 'Adobe', role: 'Sr Mgr, Partners', stage: 'Offer', value: '$220k', contacts: ['Sarah Chen'], next_step: 'Negotiation' },
-     { id: '3', company: 'Fudo', role: 'Alumni', stage: 'Closed Won', value: 'N/A', contacts: [], next_step: 'N/A' }
+     { id: '201', company: 'DepthFirst', role: 'Enterprise AE', stage: 'Interviewing', value: '$250k', contacts: ['Samuel Burns'], next_step: 'CRO Intro', date: '2025-11-19' },
+     { id: '202', company: 'Ambient.ai', role: 'Head of RevOps', stage: 'Interviewing', value: '$220k', contacts: ['Nicole Ceranna', 'Noah Barr'], next_step: 'CFO Screen', date: '2025-12-04' },
+     { id: '203', company: 'CRS Credit API', role: 'Enterprise AE', stage: 'Interviewing', value: '$200k', contacts: ['Michael Rosenberg'], next_step: 'Panel w/ Tyler', date: '2025-12-05' },
+     { id: '204', company: 'Mistral AI', role: 'Account Executive US', stage: 'Applied', value: '$240k', contacts: ['Internal Recruiter'], next_step: 'Wait for Reply', date: '2025-11-18' },
+     { id: '205', company: 'Hightouch', role: 'Mid Market AE', stage: 'Applied', value: '$180k', contacts: [], next_step: 'Under Review', date: '2025-11-18' },
+     { id: '206', company: 'Aikido Security', role: 'AE US', stage: 'Applied', value: '$190k', contacts: ['Kayleigh'], next_step: 'Referral Check', date: '2025-11-18' },
   ]);
   
   const [interviewLog, setInterviewLog] = useState<InterviewSession[]>([]);
@@ -31,16 +44,20 @@ const App: React.FC = () => {
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([
     { 
         id: '1', 
-        date: '2024-12-08', 
-        title: 'V5.0 Deployment Strategy', 
-        content: 'Shifted mindset from "Candidate" to "Ecosystem Owner". The V5 flywheel is live. Need to test the Content Factory with the Tebra conversation.', 
-        tags: ['Strategy', 'Identity'], 
-        aiAnalysis: 'The shift to Ecosystem Owner is the leverage point. \n\n**The Leverage**: Stop selling yourself. Sell the System (Basin::Nexus). \n\n**The Prophecy**: Document the build. "How I built an AI GTM OS to get hired" is the viral hook.'
+        date: '2025-12-08', 
+        title: 'V5.2 War Room Activation', 
+        content: 'System fully integrated. Injected 15+ active leads into the Nexus. The "Builder\'s Path" narrative is starting to resonate with Founders (e.g. Kyu @ Spray.io). \n\nFocus for the week: Convert the DepthFirst CRO intro into a closed deal.', 
+        tags: ['Strategy', 'Execution', 'DepthFirst'], 
+        aiAnalysis: 'The DepthFirst opportunity is your highest leverage point (70% probability). Prioritize the "AE Pitch Kit" for Cyrus. Do not let the "Consulting" angle distract from the Full-Time goal unless the retainer >$10k/mo.'
     }
   ]);
 
   const handleAddContact = (contact: NetworkContact) => {
     setContacts(prev => [contact, ...prev]);
+  };
+
+  const handleUpdateDeals = (newDeals: Deal[]) => {
+    setDeals(newDeals);
   };
 
   const handleSaveJournalEntry = (entry: JournalEntry) => {
@@ -53,13 +70,15 @@ const App: React.FC = () => {
     });
   };
 
+  const handleAddDeal = (deal: Deal) => {
+    setDeals(prev => [deal, ...prev]);
+  }
+
   const handleExport = () => {
     exportToStreamlit({
       contacts,
       deals,
       interview_log: interviewLog,
-      // Note: DataBridge types need update for full Journal support in future, 
-      // but for now we keep it compatible with V5.0 spec
     });
   };
 
@@ -67,8 +86,6 @@ const App: React.FC = () => {
     setIsImporting(true);
     try {
       const data = await importFromStreamlit(file);
-      // Merge strategy: Overwrite or Append? 
-      // For simplicity in V5.0, we will replace state with imported data to ensure sync.
       if (data.contacts) setContacts(data.contacts);
       if (data.deals) setDeals(data.deals);
       if (data.interview_log) setInterviewLog(data.interview_log);
@@ -93,6 +110,13 @@ const App: React.FC = () => {
           />
         );
       case AppMode.DOJO:
+        return <Dojo />;
+      case AppMode.PIPELINE:
+        return <Pipeline deals={deals} onUpdateDeals={handleUpdateDeals} />;
+      case AppMode.HUNT:
+        return <Hunt onAddDeal={handleAddDeal} />;
+      case AppMode.RESUME:
+        return <ResumeArchitect />;
       case AppMode.ARCHITECT:
       case AppMode.SCRIBE:
       case AppMode.MIRROR:
@@ -114,31 +138,34 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-nexus-dark text-nexus-text font-sans selection:bg-nexus-accent selection:text-white">
+    <div className="min-h-screen bg-nexus-base text-nexus-text font-sans selection:bg-nexus-accent selection:text-white overflow-hidden">
       <Sidebar currentMode={currentMode} setMode={setMode} />
       
-      <main className="ml-20 md:ml-64 p-4 md:p-8 min-h-screen transition-all duration-300">
-        <header className="mb-8 flex justify-between items-center">
+      <main className="ml-20 md:ml-64 p-4 md:p-8 h-screen overflow-y-auto transition-all duration-300 relative custom-scrollbar">
+        {/* Top Fade Overlay for Scroll */}
+        <div className="fixed top-0 left-20 md:left-64 right-0 h-8 bg-gradient-to-b from-nexus-base to-transparent z-10 pointer-events-none"></div>
+
+        <header className="mb-8 flex justify-between items-center relative z-20">
             <div>
-                <h1 className="text-2xl font-bold text-white tracking-tight">
+                <h1 className="text-2xl font-bold text-white tracking-tight font-mono">
                     {currentMode === AppMode.DASHBOARD ? 'EXECUTIVE COMMAND' : currentMode.replace('_', ' ')}
                 </h1>
-                <p className="text-nexus-muted text-sm font-mono mt-1">
+                <p className="text-nexus-muted text-xs font-mono mt-1 tracking-wider uppercase">
                     {currentMode === AppMode.DASHBOARD ? 'System Overview & Metrics' : 'Active Neural Interface'}
                 </p>
             </div>
             <div className="hidden md:flex items-center space-x-4">
-                <div className="px-3 py-1 rounded-full bg-nexus-panel border border-nexus-border flex items-center">
-                    <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
-                    <span className="text-xs font-mono text-nexus-muted">API CONNECTED</span>
+                <div className="px-3 py-1 rounded-full bg-nexus-dark border border-nexus-success/30 flex items-center shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                    <span className="w-1.5 h-1.5 bg-nexus-success rounded-full mr-2 animate-pulse"></span>
+                    <span className="text-[10px] font-mono text-nexus-success font-bold">API CONNECTED</span>
                 </div>
-                <div className="text-xs font-mono text-nexus-muted opacity-50">
-                    {new Date().toLocaleDateString()} // {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                <div className="text-[10px] font-mono text-nexus-muted opacity-70 bg-nexus-panel px-2 py-1 rounded border border-nexus-border">
+                    Target Date: JAN 2026
                 </div>
             </div>
         </header>
 
-        <div className="fade-in-up">
+        <div className="fade-in-up pb-20">
             {renderContent()}
         </div>
       </main>
@@ -149,14 +176,23 @@ const App: React.FC = () => {
           to { opacity: 1; transform: translateY(0); }
         }
         .fade-in-up {
-          animation: fade-in-up 0.3s ease-out forwards;
+          animation: fade-in-up 0.4s ease-out forwards;
         }
-        .animate-blink {
-            animation: blink 1s infinite;
+        .text-shadow-glow {
+            text-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
         }
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0; }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background-color: #1e293b;
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background-color: #3b82f6;
         }
       `}</style>
     </div>

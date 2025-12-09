@@ -1,75 +1,110 @@
 import React from 'react';
+import { Network, Database, Zap, Sword } from 'lucide-react';
 
 const NexusVisualizer: React.FC = () => {
   return (
-    <div className="relative w-full h-64 md:h-80 flex items-center justify-center overflow-hidden bg-nexus-panel rounded-xl border border-nexus-border shadow-lg">
+    <div className="relative w-full h-64 md:h-80 flex items-center justify-center overflow-hidden bg-nexus-base rounded-xl border border-nexus-border shadow-2xl group">
+      
+      {/* Background Grid */}
       <div className="absolute inset-0 opacity-20">
         <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
           <defs>
-            <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
-              <path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" strokeWidth="0.5" />
+            <pattern id="grid" width="8" height="8" patternUnits="userSpaceOnUse">
+              <path d="M 8 0 L 0 0 0 8" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-nexus-border" />
             </pattern>
+            <radialGradient id="centerGlow" cx="0.5" cy="0.5" r="0.5">
+                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.2"/>
+                <stop offset="100%" stopColor="transparent" stopOpacity="0"/>
+            </radialGradient>
           </defs>
-          <rect width="100%" height="100%" fill="url(#grid)" className="text-nexus-border" />
+          <rect width="100%" height="100%" fill="url(#grid)" />
+          <rect width="100%" height="100%" fill="url(#centerGlow)" />
         </svg>
       </div>
+
+      {/* Radial Gradient Overlay */}
+      <div className="absolute inset-0 bg-gradient-radial from-nexus-accent/10 to-transparent pointer-events-none"></div>
       
       {/* Central Node: Basin::Nexus */}
-      <div className="relative z-10 flex flex-col items-center animate-pulse">
-        <div className="w-24 h-24 rounded-full border-4 border-nexus-accent bg-nexus-dark flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.5)]">
-          <span className="text-nexus-accent font-bold font-mono text-xl">NEXUS</span>
+      <div className="relative z-20 flex flex-col items-center">
+        <div className="relative">
+             <div className="absolute inset-0 rounded-full bg-nexus-accent blur-xl opacity-30 animate-pulse"></div>
+             <div className="w-24 h-24 rounded-full border border-nexus-accent/50 bg-nexus-dark/90 backdrop-blur-xl flex items-center justify-center shadow-[0_0_40px_rgba(59,130,246,0.3)] relative z-10 group-hover:border-nexus-accent group-hover:shadow-[0_0_60px_rgba(59,130,246,0.5)] transition-all duration-700">
+                <div className="text-center">
+                    <span className="text-nexus-accent font-bold font-mono text-2xl tracking-tighter block text-shadow-glow">NEXUS</span>
+                </div>
+             </div>
         </div>
-        <div className="mt-2 text-xs text-nexus-muted font-mono tracking-widest">CORE ENGINE</div>
+        <div className="mt-4 text-[10px] text-nexus-text font-mono tracking-[0.3em] bg-nexus-dark/80 px-3 py-1 rounded border border-nexus-border/50 shadow-lg">CORE ENGINE</div>
       </div>
+
+      {/* Connecting Lines (Animated) */}
+      <svg className="absolute inset-0 pointer-events-none z-0 opacity-50">
+        <defs>
+            <filter id="glow">
+                <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                <feMerge>
+                    <feMergeNode in="coloredBlur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+            </filter>
+        </defs>
+        
+        {/* Top Left */}
+        <line x1="50%" y1="50%" x2="20%" y2="20%" stroke="#10b981" strokeWidth="1" strokeDasharray="5,5" className="animate-[dash_20s_linear_infinite]" />
+        <circle cx="35%" cy="35%" r="2" fill="#10b981" className="animate-[ping_3s_linear_infinite]" />
+        
+        {/* Top Right */}
+        <line x1="50%" y1="50%" x2="80%" y2="20%" stroke="#a855f7" strokeWidth="1" strokeDasharray="5,5" className="animate-[dash_25s_linear_infinite]" />
+         <circle cx="65%" cy="35%" r="2" fill="#a855f7" className="animate-[ping_3s_linear_infinite_1s]" />
+
+        {/* Bottom Left */}
+        <line x1="50%" y1="50%" x2="20%" y2="80%" stroke="#06b6d4" strokeWidth="1" strokeDasharray="5,5" className="animate-[dash_22s_linear_infinite]" />
+        <circle cx="35%" cy="65%" r="2" fill="#06b6d4" className="animate-[ping_3s_linear_infinite_0.5s]" />
+
+        {/* Bottom Right */}
+        <line x1="50%" y1="50%" x2="80%" y2="80%" stroke="#f59e0b" strokeWidth="1" strokeDasharray="5,5" className="animate-[dash_18s_linear_infinite]" />
+         <circle cx="65%" cy="65%" r="2" fill="#f59e0b" className="animate-[ping_3s_linear_infinite_1.5s]" />
+      </svg>
 
       {/* Satellite Nodes */}
-      {/* Signal Engine */}
-      <div className="absolute top-8 left-1/4 transform -translate-x-1/2 flex flex-col items-center group cursor-pointer hover:scale-110 transition-transform">
-        <div className="w-16 h-16 rounded-lg border-2 border-nexus-success bg-nexus-panel flex items-center justify-center shadow-lg">
-           <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-nexus-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
+      
+      {/* Signal Engine (Top Left) */}
+      <div className="absolute top-8 left-[15%] flex flex-col items-center group/node cursor-pointer hover:scale-110 transition-transform duration-300">
+        <div className="w-14 h-14 rounded-2xl border border-nexus-success/30 bg-nexus-dark/80 backdrop-blur-md flex items-center justify-center shadow-lg group-hover/node:border-nexus-success group-hover/node:shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all relative">
+           <div className="absolute inset-0 bg-nexus-success opacity-10 rounded-2xl"></div>
+           <Zap className="w-6 h-6 text-nexus-success drop-shadow-[0_0_5px_rgba(16,185,129,0.8)]" />
         </div>
-        <span className="mt-1 text-xs text-nexus-text font-mono bg-nexus-dark px-2 py-0.5 rounded border border-nexus-border">SIGNAL</span>
+        <span className="mt-3 text-[10px] text-nexus-text font-mono tracking-wider opacity-70 group-hover/node:opacity-100 group-hover/node:text-nexus-success transition-colors">SIGNAL</span>
       </div>
 
-      {/* Dojo */}
-      <div className="absolute bottom-8 right-1/4 transform translate-x-1/2 flex flex-col items-center group cursor-pointer hover:scale-110 transition-transform">
-        <div className="w-16 h-16 rounded-lg border-2 border-nexus-warning bg-nexus-panel flex items-center justify-center shadow-lg">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-nexus-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-          </svg>
+      {/* Network (Top Right) */}
+      <div className="absolute top-8 right-[15%] flex flex-col items-center group/node cursor-pointer hover:scale-110 transition-transform duration-300">
+        <div className="w-14 h-14 rounded-2xl border border-purple-500/30 bg-nexus-dark/80 backdrop-blur-md flex items-center justify-center shadow-lg group-hover/node:border-purple-500 group-hover/node:shadow-[0_0_20px_rgba(168,85,247,0.4)] transition-all relative">
+           <div className="absolute inset-0 bg-purple-500 opacity-10 rounded-2xl"></div>
+           <Network className="w-6 h-6 text-purple-500 drop-shadow-[0_0_5px_rgba(168,85,247,0.8)]" />
         </div>
-        <span className="mt-1 text-xs text-nexus-text font-mono bg-nexus-dark px-2 py-0.5 rounded border border-nexus-border">DOJO</span>
+        <span className="mt-3 text-[10px] text-nexus-text font-mono tracking-wider opacity-70 group-hover/node:opacity-100 group-hover/node:text-purple-400 transition-colors">NETWORK</span>
       </div>
 
-       {/* Network Hub */}
-       <div className="absolute top-8 right-1/4 transform translate-x-1/2 flex flex-col items-center group cursor-pointer hover:scale-110 transition-transform">
-        <div className="w-16 h-16 rounded-lg border-2 border-purple-500 bg-nexus-panel flex items-center justify-center shadow-lg">
-           <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
+       {/* Data Chain (Bottom Left) */}
+       <div className="absolute bottom-8 left-[15%] flex flex-col items-center group/node cursor-pointer hover:scale-110 transition-transform duration-300">
+        <div className="w-14 h-14 rounded-2xl border border-cyan-500/30 bg-nexus-dark/80 backdrop-blur-md flex items-center justify-center shadow-lg group-hover/node:border-cyan-500 group-hover/node:shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all relative">
+           <div className="absolute inset-0 bg-cyan-500 opacity-10 rounded-2xl"></div>
+           <Database className="w-6 h-6 text-cyan-500 drop-shadow-[0_0_5px_rgba(6,182,212,0.8)]" />
         </div>
-        <span className="mt-1 text-xs text-nexus-text font-mono bg-nexus-dark px-2 py-0.5 rounded border border-nexus-border">NETWORK</span>
+        <span className="mt-3 text-[10px] text-nexus-text font-mono tracking-wider opacity-70 group-hover/node:opacity-100 group-hover/node:text-cyan-400 transition-colors">DATA</span>
       </div>
 
-       {/* Data Chain */}
-       <div className="absolute bottom-8 left-1/4 transform -translate-x-1/2 flex flex-col items-center group cursor-pointer hover:scale-110 transition-transform">
-        <div className="w-16 h-16 rounded-lg border-2 border-cyan-500 bg-nexus-panel flex items-center justify-center shadow-lg">
-           <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-          </svg>
+      {/* Dojo (Bottom Right) */}
+      <div className="absolute bottom-8 right-[15%] flex flex-col items-center group/node cursor-pointer hover:scale-110 transition-transform duration-300">
+        <div className="w-14 h-14 rounded-2xl border border-nexus-gold/30 bg-nexus-dark/80 backdrop-blur-md flex items-center justify-center shadow-lg group-hover/node:border-nexus-gold group-hover/node:shadow-[0_0_20px_rgba(212,175,55,0.4)] transition-all relative">
+          <div className="absolute inset-0 bg-nexus-gold opacity-10 rounded-2xl"></div>
+          <Sword className="w-6 h-6 text-nexus-gold drop-shadow-[0_0_5px_rgba(212,175,55,0.8)]" />
         </div>
-        <span className="mt-1 text-xs text-nexus-text font-mono bg-nexus-dark px-2 py-0.5 rounded border border-nexus-border">DATA</span>
+        <span className="mt-3 text-[10px] text-nexus-text font-mono tracking-wider opacity-70 group-hover/node:opacity-100 group-hover/node:text-nexus-gold transition-colors">DOJO</span>
       </div>
 
-      {/* Connecting Lines (SVG Overlay) */}
-      <svg className="absolute inset-0 pointer-events-none z-0 opacity-40">
-        <line x1="50%" y1="50%" x2="25%" y2="20%" stroke="#334155" strokeWidth="2" strokeDasharray="5,5" />
-        <line x1="50%" y1="50%" x2="75%" y2="20%" stroke="#334155" strokeWidth="2" strokeDasharray="5,5" />
-        <line x1="50%" y1="50%" x2="25%" y2="80%" stroke="#334155" strokeWidth="2" strokeDasharray="5,5" />
-        <line x1="50%" y1="50%" x2="75%" y2="80%" stroke="#334155" strokeWidth="2" strokeDasharray="5,5" />
-      </svg>
     </div>
   );
 };
