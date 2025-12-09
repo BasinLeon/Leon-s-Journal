@@ -3,7 +3,7 @@ import React, { useState, useRef } from 'react';
 import { AppMode, NetworkContact } from '../types';
 import { createChatSession, sendMessageStream } from '../services/geminiService';
 import { Chat } from '@google/genai';
-import { Network, Share2, Loader2, Linkedin, Twitter, Copy, Database, PenTool, CheckCircle, Download, Target, RefreshCw, Trello, AlertCircle, Clock, X, Hourglass } from 'lucide-react';
+import { Network, Share2, Loader2, Linkedin, Twitter, Copy, Database, PenTool, CheckCircle, Download, Target, RefreshCw, Trello, AlertCircle, Clock, X, Hourglass, Zap, Plus, Users, ArrowRightLeft, Sparkles } from 'lucide-react';
 
 interface NetworkCRMProps {
   contacts: NetworkContact[];
@@ -50,7 +50,7 @@ interface RecommendedAction {
 }
 
 const NetworkCRM: React.FC<NetworkCRMProps> = ({ contacts, onAddContact }) => {
-  const [activeTab, setActiveTab] = useState<'factory' | 'database' | 'kanban'>('factory');
+  const [activeTab, setActiveTab] = useState<'factory' | 'database' | 'kanban' | 'matchmaker'>('factory');
   const [formData, setFormData] = useState({
     name: '',
     role: '',
@@ -59,6 +59,14 @@ const NetworkCRM: React.FC<NetworkCRMProps> = ({ contacts, onAddContact }) => {
     insight: '',
     stage: 'Warm' as 'Cold' | 'Warm' | 'Hot' | 'Champion'
   });
+  const [smartIngestText, setSmartIngestText] = useState('');
+  const [showSmartIngest, setShowSmartIngest] = useState(false);
+  const [isIngesting, setIsIngesting] = useState(false);
+
+  const [matchmakerData, setMatchmakerData] = useState<{from: string, to: string}>({from: '', to: ''});
+  const [introEmail, setIntroEmail] = useState('');
+  const [isMatchmaking, setIsMatchmaking] = useState(false);
+
   const [generatedContent, setGeneratedContent] = useState('');
   const [recommendedAction, setRecommendedAction] = useState<RecommendedAction | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -120,7 +128,8 @@ const NetworkCRM: React.FC<NetworkCRMProps> = ({ contacts, onAddContact }) => {
       company: formData.company || 'Unknown',
       date: new Date().toISOString().split('T')[0],
       stage: formData.stage,
-      lastTopic: formData.topic || 'General'
+      lastTopic: formData.topic || 'General',
+      priority: 2
     };
     onAddContact(newContact);
     setIsLogged(true);
@@ -130,7 +139,6 @@ const NetworkCRM: React.FC<NetworkCRMProps> = ({ contacts, onAddContact }) => {
         chatSessionRef.current = createChatSession(AppMode.NETWORK);
       }
 
-      // Explicitly listing types to guide the AI
       const prompt = `
         LOG INTERACTION:
         Name: ${formData.name}
@@ -166,6 +174,110 @@ const NetworkCRM: React.FC<NetworkCRMProps> = ({ contacts, onAddContact }) => {
     }
   };
 
+  const handleSmartIngest = async () => {
+    if (!smartIngestText.trim()) return;
+    setIsIngesting(true);
+    
+    try {
+        if (!chatSessionRef.current) {
+            chatSessionRef.current = createChatSession(AppMode.NETWORK);
+        }
+
+        const prompt = `
+            ACT AS: Data Extraction Engine.
+            INPUT: "${smartIngestText}"
+            
+            GOAL: Extract specific fields. Detect "Intent Signals" (hiring, fundraising, news).
+            
+            OUTPUT JSON ONLY:
+            {
+                "name": "Full Name",
+                "role": "Job Title",
+                "company": "Company Name",
+                "lastTopic": "Summary of context or signal",
+                "stage": "Cold" | "Warm" | "Hot",
+                "tags": ["Hiring", "Investor", etc]
+            }
+        `;
+
+        const result = await chatSessionRef.current.sendMessage(prompt);
+        const text = result.response.text();
+        
+        // Basic JSON cleaning (Gemini sometimes adds markdown blocks)
+        const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        const extracted = JSON.parse(jsonStr);
+
+        const newContact: NetworkContact = {
+            id: Date.now().toString(),
+            name: extracted.name || 'Unknown',
+            role: extracted.role || 'Unknown',
+            company: extracted.company || 'Unknown',
+            date: new Date().toISOString().split('T')[0],
+            stage: extracted.stage || 'Cold',
+            lastTopic: extracted.lastTopic || 'Smart Ingest',
+            tags: extracted.tags || [],
+            lastSignal: smartIngestText,
+            priority: extracted.tags?.includes('Hiring') ? 1 : 2
+        };
+
+        onAddContact(newContact);
+        setFormData({
+            ...formData,
+            name: newContact.name,
+            role: newContact.role,
+            company: newContact.company,
+            topic: newContact.lastTopic,
+            stage: newContact.stage
+        });
+        
+        setShowSmartIngest(false);
+        setSmartIngestText('');
+        alert(`Successfully ingested: ${newContact.name}`);
+
+    } catch (e) {
+        console.error(e);
+        alert("Failed to parse signal. Try pasting cleaner text.");
+    } finally {
+        setIsIngesting(false);
+    }
+  };
+
+  const handleMatchmake = async () => {
+      if(!matchmakerData.from || !matchmakerData.to) return;
+      setIsMatchmaking(true);
+      setIntroEmail('');
+
+      try {
+        if (!chatSessionRef.current) {
+            chatSessionRef.current = createChatSession(AppMode.NETWORK);
+        }
+        
+        const c1 = contacts.find(c => c.id === matchmakerData.from);
+        const c2 = contacts.find(c => c.id === matchmakerData.to);
+
+        const prompt = `
+            ACT AS: Super-Connector.
+            TASK: Write a "Double Opt-In" introduction email connecting these two people.
+            
+            PERSON A (Connector/Me): Leon Basin.
+            PERSON B (To): ${c1?.name} (${c1?.role} @ ${c1?.company}). Context: ${c1?.lastTopic}.
+            PERSON C (To be intro'd): ${c2?.name} (${c2?.role} @ ${c2?.company}). Context: ${c2?.lastTopic}.
+            
+            STYLE: High-status, brief, value-forward. No fluff.
+            Output specific subject line and body.
+        `;
+
+        await sendMessageStream(chatSessionRef.current, prompt, (chunk) => {
+            setIntroEmail(prev => prev + chunk);
+        });
+
+      } catch (e) {
+          setIntroEmail("Error generating intro.");
+      } finally {
+          setIsMatchmaking(false);
+      }
+  };
+
   const handleExportJSON = () => {
     const jsonString = JSON.stringify(contacts, null, 2);
     navigator.clipboard.writeText(jsonString);
@@ -176,7 +288,7 @@ const NetworkCRM: React.FC<NetworkCRMProps> = ({ contacts, onAddContact }) => {
     if (!selectedContact) return null;
 
     const daysSince = getDaysSinceLastTouch(selectedContact.date);
-    const healthScore = Math.max(0, 100 - (daysSince * 5)); // Decay health
+    const healthScore = Math.max(0, 100 - (daysSince * 5)); 
     
     return (
         <div className="fixed inset-y-0 right-0 w-96 bg-nexus-dark/95 backdrop-blur-xl border-l border-nexus-border shadow-2xl transform transition-transform duration-300 z-50 overflow-y-auto">
@@ -195,6 +307,18 @@ const NetworkCRM: React.FC<NetworkCRMProps> = ({ contacts, onAddContact }) => {
                 </div>
 
                 <div className="space-y-6">
+                    {/* Tags */}
+                    {selectedContact.tags && selectedContact.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                            {selectedContact.tags.map(tag => (
+                                <span key={tag} className="text-[10px] font-mono px-2 py-1 rounded bg-nexus-accent/10 text-nexus-accent border border-nexus-accent/30 flex items-center">
+                                    <Sparkles className="w-3 h-3 mr-1" />
+                                    {tag}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+
                     {/* Health Status */}
                     <div className="p-4 bg-nexus-panel rounded-lg border border-nexus-border">
                         <div className="flex justify-between items-center mb-2">
@@ -213,12 +337,6 @@ const NetworkCRM: React.FC<NetworkCRMProps> = ({ contacts, onAddContact }) => {
                             <Clock className="w-3 h-3 mr-2" />
                             Last touch: {daysSince} days ago
                         </div>
-                         {daysSince > 14 && (
-                             <div className="mt-2 text-[10px] text-nexus-danger bg-nexus-danger/10 px-2 py-1 rounded border border-nexus-danger/20 flex items-center">
-                                 <AlertCircle className="w-3 h-3 mr-1" />
-                                 RESURFACE NEEDED: Risk of drift
-                             </div>
-                         )}
                     </div>
 
                     {/* Metadata */}
@@ -239,10 +357,27 @@ const NetworkCRM: React.FC<NetworkCRMProps> = ({ contacts, onAddContact }) => {
                         </div>
                     </div>
 
+                    {/* Signal / Reasoning */}
+                    {selectedContact.signalScore && (
+                        <div className="p-4 bg-nexus-panel rounded-lg border border-nexus-border">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-xs text-nexus-muted font-mono uppercase">SIGNAL STRENGTH</span>
+                                <span className="text-xs font-mono font-bold text-nexus-gold">{selectedContact.signalScore}/10</span>
+                            </div>
+                            <p className="text-xs text-gray-400 italic">"{selectedContact.reasoning}"</p>
+                        </div>
+                    )}
+
                     {/* Last Topic */}
                     <div className="p-4 bg-nexus-panel rounded-lg border border-nexus-border">
                         <div className="text-xs text-nexus-muted font-mono uppercase mb-2">LAST CONTEXT</div>
                         <p className="text-sm text-gray-300 italic">"{selectedContact.lastTopic}"</p>
+                        {selectedContact.lastSignal && (
+                            <div className="mt-2 pt-2 border-t border-nexus-border/50">
+                                <span className="text-[10px] text-nexus-muted uppercase">RAW SIGNAL</span>
+                                <p className="text-xs text-nexus-muted mt-1 truncate">{selectedContact.lastSignal}</p>
+                            </div>
+                        )}
                     </div>
 
                     {/* History Placeholder */}
@@ -279,22 +414,56 @@ const NetworkCRM: React.FC<NetworkCRMProps> = ({ contacts, onAddContact }) => {
     <div className="flex flex-col h-[calc(100vh-8rem)] relative">
       {renderDetailPanel()}
       
+      {/* Smart Ingest Modal */}
+      {showSmartIngest && (
+          <div className="absolute inset-0 z-40 bg-nexus-base/90 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-nexus-panel border border-nexus-border rounded-xl shadow-2xl w-full max-w-lg p-6 animate-fade-in">
+                  <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-bold text-white font-mono flex items-center">
+                          <Zap className="w-5 h-5 text-nexus-accent mr-2" />
+                          SMART SIGNAL INGEST
+                      </h3>
+                      <button onClick={() => setShowSmartIngest(false)} className="text-nexus-muted hover:text-white"><X className="w-5 h-5"/></button>
+                  </div>
+                  <p className="text-xs text-nexus-muted mb-4">
+                      Paste raw text (LinkedIn profile, Tweet, Email, CSV row) to auto-extract and tag.
+                  </p>
+                  <textarea 
+                    className="w-full h-32 bg-nexus-dark border border-nexus-border rounded-lg p-3 text-sm font-mono focus:outline-none focus:border-nexus-accent resize-none"
+                    placeholder="e.g. 'Met John Smith (VP Sales @ Tebra) at SaaStr. They just raised Series C and are hiring aggressively.'"
+                    value={smartIngestText}
+                    onChange={(e) => setSmartIngestText(e.target.value)}
+                  />
+                  <div className="flex justify-end mt-4">
+                      <button 
+                        onClick={handleSmartIngest}
+                        disabled={isIngesting || !smartIngestText}
+                        className="flex items-center px-4 py-2 bg-nexus-accent text-white rounded-lg font-bold text-xs hover:bg-blue-600 disabled:opacity-50"
+                      >
+                          {isIngesting ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <Sparkles className="w-4 h-4 mr-2"/>}
+                          PROCESS SIGNAL
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {/* Tabs */}
-      <div className="flex space-x-1 mb-4 border-b border-nexus-border">
+      <div className="flex space-x-1 mb-4 border-b border-nexus-border overflow-x-auto">
         <button
           onClick={() => setActiveTab('factory')}
-          className={`flex items-center px-4 py-2 text-sm font-mono font-bold transition-colors border-b-2 ${
+          className={`flex items-center px-4 py-2 text-sm font-mono font-bold transition-colors border-b-2 whitespace-nowrap ${
             activeTab === 'factory' 
               ? 'border-nexus-accent text-nexus-text bg-nexus-panel/50' 
               : 'border-transparent text-nexus-muted hover:text-nexus-text'
           }`}
         >
           <PenTool className="w-4 h-4 mr-2" />
-          CONTENT FACTORY
+          FACTORY
         </button>
         <button
           onClick={() => setActiveTab('database')}
-          className={`flex items-center px-4 py-2 text-sm font-mono font-bold transition-colors border-b-2 ${
+          className={`flex items-center px-4 py-2 text-sm font-mono font-bold transition-colors border-b-2 whitespace-nowrap ${
             activeTab === 'database' 
               ? 'border-nexus-accent text-nexus-text bg-nexus-panel/50' 
               : 'border-transparent text-nexus-muted hover:text-nexus-text'
@@ -305,7 +474,7 @@ const NetworkCRM: React.FC<NetworkCRMProps> = ({ contacts, onAddContact }) => {
         </button>
          <button
           onClick={() => setActiveTab('kanban')}
-          className={`flex items-center px-4 py-2 text-sm font-mono font-bold transition-colors border-b-2 ${
+          className={`flex items-center px-4 py-2 text-sm font-mono font-bold transition-colors border-b-2 whitespace-nowrap ${
             activeTab === 'kanban' 
               ? 'border-nexus-accent text-nexus-text bg-nexus-panel/50' 
               : 'border-transparent text-nexus-muted hover:text-nexus-text'
@@ -314,20 +483,40 @@ const NetworkCRM: React.FC<NetworkCRMProps> = ({ contacts, onAddContact }) => {
           <Trello className="w-4 h-4 mr-2" />
           KANBAN
         </button>
+        <button
+          onClick={() => setActiveTab('matchmaker')}
+          className={`flex items-center px-4 py-2 text-sm font-mono font-bold transition-colors border-b-2 whitespace-nowrap ${
+            activeTab === 'matchmaker' 
+              ? 'border-nexus-accent text-nexus-text bg-nexus-panel/50' 
+              : 'border-transparent text-nexus-muted hover:text-nexus-text'
+          }`}
+        >
+          <ArrowRightLeft className="w-4 h-4 mr-2" />
+          CONNECTOR
+        </button>
       </div>
 
       {activeTab === 'factory' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full overflow-hidden">
           {/* Input Panel */}
           <div className="bg-nexus-panel rounded-xl border border-nexus-border p-6 overflow-y-auto">
-            <div className="flex items-center space-x-3 mb-6 border-b border-nexus-border pb-4">
-                <div className="p-2 bg-nexus-dark rounded-lg border border-nexus-border">
-                    <Network className="w-6 h-6 text-purple-500" />
+            <div className="flex items-center justify-between mb-6 border-b border-nexus-border pb-4">
+                <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-nexus-dark rounded-lg border border-nexus-border">
+                        <Network className="w-6 h-6 text-purple-500" />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-bold text-nexus-text font-mono">SIGNAL INPUT</h2>
+                        <p className="text-xs text-nexus-muted">Log Conversation → Generate Gravity</p>
+                    </div>
                 </div>
-                <div>
-                    <h2 className="text-lg font-bold text-nexus-text font-mono">SIGNAL INPUT</h2>
-                    <p className="text-xs text-nexus-muted">Log Conversation → Generate Gravity</p>
-                </div>
+                <button 
+                    onClick={() => setShowSmartIngest(true)}
+                    className="flex items-center px-3 py-1.5 bg-nexus-dark border border-nexus-accent/50 text-nexus-accent rounded text-xs font-bold hover:bg-nexus-accent/10 transition-colors"
+                >
+                    <Zap className="w-3 h-3 mr-1" />
+                    SMART PASTE
+                </button>
             </div>
 
             <div className="space-y-4">
@@ -503,7 +692,16 @@ const NetworkCRM: React.FC<NetworkCRMProps> = ({ contacts, onAddContact }) => {
       {activeTab === 'database' && (
         <div className="bg-nexus-panel rounded-xl border border-nexus-border p-6 h-full overflow-hidden flex flex-col">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-nexus-text font-mono">RELATIONSHIP MATRIX</h2>
+            <div className="flex items-center space-x-4">
+                <h2 className="text-lg font-bold text-nexus-text font-mono">RELATIONSHIP MATRIX</h2>
+                <button 
+                    onClick={() => setShowSmartIngest(true)}
+                    className="flex items-center px-3 py-1.5 bg-nexus-dark border border-nexus-accent/50 text-nexus-accent rounded text-xs font-bold hover:bg-nexus-accent/10 transition-colors"
+                >
+                    <Plus className="w-3 h-3 mr-1" />
+                    ADD
+                </button>
+            </div>
             <button 
               onClick={handleExportJSON}
               className="flex items-center px-4 py-2 bg-nexus-dark border border-nexus-border rounded text-xs font-mono text-nexus-text hover:bg-nexus-border transition-colors"
@@ -541,10 +739,18 @@ const NetworkCRM: React.FC<NetworkCRMProps> = ({ contacts, onAddContact }) => {
                                 <AlertCircle className="w-3 h-3 text-nexus-danger" />
                             </span>
                             )}
+                            {contact.priority === 1 && <span className="ml-2 text-[8px] bg-red-500/20 text-red-400 px-1 rounded">HOT</span>}
                         </td>
                         <td className="p-3 text-gray-400">{contact.role}</td>
                         <td className="p-3 text-nexus-accent">{contact.company}</td>
-                        <td className="p-3 text-gray-400 truncate max-w-[200px]">{contact.lastTopic}</td>
+                        <td className="p-3 text-gray-400 truncate max-w-[200px]">
+                            {contact.lastTopic}
+                            {contact.tags && contact.tags.length > 0 && (
+                                <div className="flex gap-1 mt-1">
+                                    {contact.tags.slice(0,2).map(t => <span key={t} className="text-[8px] bg-nexus-panel border px-1 rounded">{t}</span>)}
+                                </div>
+                            )}
+                        </td>
                         <td className="p-3">
                             {resurface.status === 'overdue' ? (
                                 <span className="flex items-center text-nexus-danger font-bold text-xs bg-nexus-danger/10 px-2 py-1 rounded w-fit">
@@ -573,6 +779,88 @@ const NetworkCRM: React.FC<NetworkCRMProps> = ({ contacts, onAddContact }) => {
             </table>
           </div>
         </div>
+      )}
+
+      {activeTab === 'matchmaker' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full p-6 bg-nexus-panel rounded-xl border border-nexus-border overflow-hidden">
+              <div className="lg:col-span-1 space-y-4">
+                  <h2 className="text-lg font-bold text-nexus-text font-mono flex items-center mb-6">
+                      <ArrowRightLeft className="w-5 h-5 mr-2 text-nexus-accent" />
+                      MATCHMAKER
+                  </h2>
+                  
+                  <div className="p-4 bg-nexus-dark rounded-lg border border-nexus-border">
+                      <label className="text-xs text-nexus-muted font-mono block mb-2">CONNECTOR (YOU)</label>
+                      <div className="text-sm font-bold text-white">Leon Basin</div>
+                  </div>
+
+                  <div className="relative">
+                      <div className="absolute left-1/2 -ml-0.5 w-0.5 h-8 bg-nexus-border -top-6"></div>
+                  </div>
+
+                  <div className="space-y-4">
+                      <div>
+                          <label className="text-xs text-nexus-muted font-mono block mb-1">SELECT PERSON A (TO)</label>
+                          <select 
+                            className="w-full bg-nexus-dark border border-nexus-border rounded p-2 text-sm text-nexus-text"
+                            value={matchmakerData.from}
+                            onChange={(e) => setMatchmakerData({...matchmakerData, from: e.target.value})}
+                          >
+                              <option value="">Select Contact...</option>
+                              {contacts.map(c => <option key={c.id} value={c.id}>{c.name} ({c.company})</option>)}
+                          </select>
+                      </div>
+                      
+                      <div className="flex justify-center text-nexus-muted">
+                          <ArrowRightLeft className="w-4 h-4 rotate-90" />
+                      </div>
+
+                      <div>
+                          <label className="text-xs text-nexus-muted font-mono block mb-1">SELECT PERSON B (INTRO)</label>
+                          <select 
+                            className="w-full bg-nexus-dark border border-nexus-border rounded p-2 text-sm text-nexus-text"
+                            value={matchmakerData.to}
+                            onChange={(e) => setMatchmakerData({...matchmakerData, to: e.target.value})}
+                          >
+                              <option value="">Select Contact...</option>
+                              {contacts.map(c => <option key={c.id} value={c.id}>{c.name} ({c.company})</option>)}
+                          </select>
+                      </div>
+                  </div>
+
+                  <button 
+                    onClick={handleMatchmake}
+                    disabled={!matchmakerData.from || !matchmakerData.to || isMatchmaking}
+                    className="w-full mt-4 py-3 bg-nexus-accent hover:bg-blue-600 text-white font-bold rounded-lg transition-all flex items-center justify-center disabled:opacity-50"
+                  >
+                      {isMatchmaking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                      GENERATE DOUBLE OPT-IN
+                  </button>
+              </div>
+
+              <div className="lg:col-span-2 bg-nexus-dark rounded-lg border border-nexus-border p-6 relative">
+                  <div className="absolute top-4 right-4">
+                      <button 
+                        onClick={() => navigator.clipboard.writeText(introEmail)}
+                        className="p-2 hover:bg-nexus-panel rounded text-nexus-muted hover:text-white"
+                        title="Copy to Clipboard"
+                      >
+                          <Copy className="w-4 h-4" />
+                      </button>
+                  </div>
+                  <h3 className="text-xs text-nexus-muted font-mono uppercase mb-4">DRAFT EMAIL</h3>
+                  {introEmail ? (
+                      <div className="prose prose-invert prose-sm font-mono whitespace-pre-wrap text-gray-300">
+                          {introEmail}
+                      </div>
+                  ) : (
+                      <div className="h-full flex flex-col items-center justify-center text-nexus-muted opacity-50">
+                          <Users className="w-12 h-12 mb-4" />
+                          <p>Select contacts to generate intro.</p>
+                      </div>
+                  )}
+              </div>
+          </div>
       )}
 
       {activeTab === 'kanban' && (

@@ -1,7 +1,9 @@
 
-import React from 'react';
-import { Deal } from '../types';
-import { Briefcase, DollarSign, Calendar, Plus, ExternalLink, TrendingUp, ChevronRight } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { AppMode, Deal } from '../types';
+import { Briefcase, DollarSign, Calendar, Plus, ExternalLink, TrendingUp, ChevronRight, Download, Zap, Loader2, X } from 'lucide-react';
+import { createChatSession } from '../services/geminiService';
+import { Chat } from '@google/genai';
 
 interface PipelineProps {
   deals: Deal[];
@@ -9,10 +11,14 @@ interface PipelineProps {
 }
 
 const Pipeline: React.FC<PipelineProps> = ({ deals, onUpdateDeals }) => {
+  const [showSmartAdd, setShowSmartAdd] = useState(false);
+  const [smartAddText, setSmartAddText] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const chatSessionRef = useRef<Chat | null>(null);
+
   const stages = ['Target', 'Applied', 'Interviewing', 'Offer'];
 
   // Calculate Weighted Value
-  // Target: 10%, Applied: 20%, Interviewing: 50%, Offer: 90%
   const calculateWeightedValue = () => {
       let total = 0;
       deals.forEach(deal => {
@@ -48,8 +54,121 @@ const Pipeline: React.FC<PipelineProps> = ({ deals, onUpdateDeals }) => {
       }
   };
 
+  const handleExportCSV = () => {
+      const headers = ['Company', 'Role', 'Stage', 'Value', 'Next Step', 'Date Applied', 'Follow Up'];
+      const rows = deals.map(d => [
+          d.company, d.role, d.stage, d.value, d.next_step, d.dateApplied || '', d.nextFollowUp || ''
+      ]);
+      
+      const csvContent = "data:text/csv;charset=utf-8," 
+          + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+      
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "nexus_pipeline.csv");
+      document.body.appendChild(link);
+      link.click();
+  };
+
+  const handleSmartAdd = async () => {
+      if (!smartAddText.trim()) return;
+      setIsProcessing(true);
+
+      try {
+        if (!chatSessionRef.current) {
+            chatSessionRef.current = createChatSession(AppMode.PIPELINE); // Using Pipeline mode which knows about jobs
+        }
+
+        const prompt = `
+            ACT AS: Job Parser.
+            INPUT: "${smartAddText}"
+            
+            GOAL: Extract deal details. Infer value if missing based on role seniority (e.g. Director ~$220k, VP ~$250k, AE ~$180k).
+            
+            OUTPUT JSON ONLY:
+            {
+                "company": "Company Name",
+                "role": "Role Title",
+                "value": "$200k",
+                "next_step": "Suggested first step",
+                "stage": "Target"
+            }
+        `;
+
+        const result = await chatSessionRef.current.sendMessage(prompt);
+        const text = result.response.text();
+        const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        const extracted = JSON.parse(jsonStr);
+
+        const newDeal: Deal = {
+            id: Date.now().toString(),
+            company: extracted.company || 'Unknown',
+            role: extracted.role || 'Unknown',
+            stage: 'Target',
+            value: extracted.value || '$0k',
+            contacts: [],
+            next_step: extracted.next_step || 'Research',
+            date: new Date().toISOString().split('T')[0],
+            dateApplied: new Date().toISOString().split('T')[0]
+        };
+
+        onUpdateDeals([newDeal, ...deals]);
+        setSmartAddText('');
+        setShowSmartAdd(false);
+
+      } catch (e) {
+          alert("Failed to parse deal info.");
+      } finally {
+          setIsProcessing(false);
+      }
+  };
+
+  const isStale = (deal: Deal) => {
+      // Basic check: if applied > 14 days ago and still applied
+      if (!deal.dateApplied) return false;
+      const applied = new Date(deal.dateApplied);
+      const now = new Date();
+      const diff = Math.ceil(Math.abs(now.getTime() - applied.getTime()) / (1000 * 60 * 60 * 24));
+      return diff > 14 && (deal.stage === 'Applied' || deal.stage === 'Target');
+  }
+
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)]">
+    <div className="flex flex-col h-[calc(100vh-8rem)] relative">
+      {/* Smart Add Modal */}
+      {showSmartAdd && (
+          <div className="absolute inset-0 z-40 bg-nexus-base/90 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-nexus-panel border border-nexus-border rounded-xl shadow-2xl w-full max-w-lg p-6 animate-fade-in">
+                  <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-bold text-white font-mono flex items-center">
+                          <Zap className="w-5 h-5 text-nexus-accent mr-2" />
+                          SMART DEAL CAPTURE
+                      </h3>
+                      <button onClick={() => setShowSmartAdd(false)} className="text-nexus-muted hover:text-white"><X className="w-5 h-5"/></button>
+                  </div>
+                  <p className="text-xs text-nexus-muted mb-4">
+                      Paste a Job Description URL, text snippet, or Slack message to auto-create a deal.
+                  </p>
+                  <textarea 
+                    className="w-full h-32 bg-nexus-dark border border-nexus-border rounded-lg p-3 text-sm font-mono focus:outline-none focus:border-nexus-accent resize-none"
+                    placeholder="e.g. 'Found a Director of GTM role at Vercel. Looks perfect for my background. Pay range $220-260k.'"
+                    value={smartAddText}
+                    onChange={(e) => setSmartAddText(e.target.value)}
+                  />
+                  <div className="flex justify-end mt-4">
+                      <button 
+                        onClick={handleSmartAdd}
+                        disabled={isProcessing || !smartAddText}
+                        className="flex items-center px-4 py-2 bg-nexus-accent text-white rounded-lg font-bold text-xs hover:bg-blue-600 disabled:opacity-50"
+                      >
+                          {isProcessing ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <Zap className="w-4 h-4 mr-2"/>}
+                          CREATE TARGET
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <div>
            <h2 className="text-lg font-bold text-nexus-text font-mono">JOB APPLICATION PIPELINE</h2>
@@ -63,9 +182,19 @@ const Pipeline: React.FC<PipelineProps> = ({ deals, onUpdateDeals }) => {
                     <div className="text-lg font-bold text-nexus-text font-mono">${calculateWeightedValue()}k</div>
                 </div>
             </div>
-            <button className="flex items-center px-4 py-2 bg-nexus-accent text-white rounded text-xs font-bold hover:bg-blue-600 transition-colors">
-            <Plus className="w-4 h-4 mr-2" />
-            ADD TARGET
+            <button 
+                onClick={handleExportCSV}
+                className="flex items-center px-3 py-2 bg-nexus-dark border border-nexus-border text-nexus-muted rounded text-xs font-bold hover:text-white hover:border-nexus-accent transition-colors"
+            >
+                <Download className="w-4 h-4 mr-2" />
+                CSV
+            </button>
+            <button 
+                onClick={() => setShowSmartAdd(true)}
+                className="flex items-center px-4 py-2 bg-nexus-accent text-white rounded text-xs font-bold hover:bg-blue-600 transition-colors"
+            >
+                <Plus className="w-4 h-4 mr-2" />
+                ADD TARGET
             </button>
         </div>
       </div>
@@ -104,6 +233,19 @@ const Pipeline: React.FC<PipelineProps> = ({ deals, onUpdateDeals }) => {
                       {deal.date}
                     </div>
                   </div>
+
+                  {/* Tracker Details */}
+                  {deal.dateApplied && (
+                      <div className="mt-2 text-[9px] text-nexus-muted font-mono flex justify-between">
+                          <span>Applied: {deal.dateApplied}</span>
+                          {isStale(deal) && <span className="text-nexus-warning font-bold">STALE</span>}
+                      </div>
+                  )}
+                  {deal.nextFollowUp && (
+                      <div className="text-[9px] text-nexus-accent font-mono">
+                          Follow Up: {deal.nextFollowUp}
+                      </div>
+                  )}
                   
                   {deal.next_step && (
                     <div className="mt-3 pt-3 border-t border-white/5">

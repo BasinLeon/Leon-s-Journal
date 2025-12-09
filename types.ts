@@ -37,6 +37,10 @@ export interface NetworkContact {
   lastTopic: string;
   history?: InteractionLog[];
   priority?: 1 | 2 | 3;
+  signalScore?: number;
+  reasoning?: string;
+  tags?: string[]; // e.g. "Hiring", "Investor", "Former Colleague"
+  lastSignal?: string; // The raw text/context that triggered the update
 }
 
 export interface InteractionLog {
@@ -61,6 +65,10 @@ export interface Deal {
   dateApplied?: string;
   nextFollowUp?: string;
   contactPerson?: string;
+  fitLevel?: 1 | 2 | 3;
+  priority?: 'High' | 'Med' | 'Low';
+  source?: string;
+  lastTouch?: string;
 }
 
 export interface InterviewSession {
